@@ -1,5 +1,14 @@
-template-repository (1.0-1) unstable; urgency=medium
+roman-numerals (3.1.0-2) unstable; urgency=medium
 
-  * Initial release
+  * Backport upstream patch to use a PEP 639 license expression.
+    - Bump required flit version to 3.12.
+  * Bump Standards-Version to 4.7.2, no changes needed.
+  * Upload to unstable.
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 04 Aug 2025 16:56:37 +0300
+
+roman-numerals (3.1.0-1) experimental; urgency=medium
+
+  * Initial release. (Closes: #1098740)
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 23 Feb 2025 19:31:33 +0300

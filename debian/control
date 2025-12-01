@@ -1,15 +1,34 @@
-Source: template-repository
-Section: unknown
+Source: roman-numerals
+Section: python
 Priority: optional
-Maintainer: Tsic404 <liuheng@deepin.org>
-Build-Depends: debhelper (>= 11)
-Standards-Version: 4.1.3
-Homepage: https://github.com/deepin-community/template-repository
-#Vcs-Browser: https://salsa.debian.org/debian/deepin-community-template-repository
-#Vcs-Git: https://salsa.debian.org/debian/deepin-community-template-repository.git
+Maintainer: Debian Python Team <team+python@tracker.debian.org>
+Uploaders: Dmitry Shachnev <mitya57@debian.org>
+Homepage: https://github.com/AA-Turner/roman-numerals
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               dh-sequence-python3,
+               flit (>= 3.12),
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-pytest (>= 8) <!nocheck>
+Rules-Requires-Root: no
+Standards-Version: 4.7.2
+Vcs-Git: https://salsa.debian.org/python-team/packages/roman-numerals.git
+Vcs-Browser: https://salsa.debian.org/python-team/packages/roman-numerals
 
-Package: template-repository
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Package: python3-roman-numerals
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Python library for manipulating well-formed Roman numerals
+ Integers between 1 and 3,999 (inclusive) are supported. Numbers beyond this
+ range will return an OutOfRangeError.
+ .
+ The classical system of roman numerals requires that the same character may
+ not appear more than thrice consecutively, meaning that 'MMMCMXCIX' (3,999)
+ is the largest well-formed Roman numeral. The smallest is 'I' (1), as there
+ is no symbol for zero in Roman numerals.
+ .
+ Both upper- and lower-case formatting of roman numerals are supported, and
+ likewise for parsing strings, although the entire string must be of the same
+ case. Numerals that do not adhere to the classical form are rejected with an
+ InvalidRomanNumeralError.
