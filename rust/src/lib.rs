@@ -30,7 +30,7 @@
 //! assert_eq!(num.as_u16(), 16);
 //!
 //! let num: RomanNumeral = 3_999.try_into().unwrap();
-//! println!("{}", num);  // MMMCMXCIX
+//! println!("{num}");  // MMMCMXCIX
 //! ```
 //!
 //! ### Convert a roman numeral to a string
@@ -42,8 +42,8 @@
 //! assert_eq!(num.to_string(), "XVI");
 //! assert_eq!(num.to_uppercase(), "XVI");
 //! assert_eq!(num.to_lowercase(), "xvi");
-//! assert_eq!(format!("{:X}", num), "XVI");
-//! assert_eq!(format!("{:x}", num), "xvi");
+//! assert_eq!(format!("{num:X}"), "XVI");
+//! assert_eq!(format!("{num:x}"), "xvi");
 //! ```
 //!
 //! ### Extract the decimal value of a roman numeral
@@ -88,6 +88,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+use core::error::Error;
 use core::fmt;
 use core::num::NonZero;
 use core::str::FromStr;
@@ -108,6 +109,8 @@ impl fmt::Display for OutOfRangeError {
     }
 }
 
+impl Error for OutOfRangeError {}
+
 /// Returned as an error if a parsed string is not a roman numeral.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
@@ -119,6 +122,8 @@ impl fmt::Display for InvalidRomanNumeralError {
     }
 }
 
+impl Error for InvalidRomanNumeralError {}
+
 /// A Roman numeral.
 ///
 /// Only values between 1 and 3,999 are valid.
@@ -128,6 +133,20 @@ impl fmt::Display for InvalidRomanNumeralError {
 pub struct RomanNumeral(NonZero<u16>);
 
 impl RomanNumeral {
+    /// The smallest well-formed Roman numeral: I (1).
+    pub const MIN: Self = Self(
+        // TODO: Use NonZero::new(MIN).unwrap() when MSRV >= 1.83.
+        // SAFETY: crate::MIN is a non-zero constant value.
+        unsafe { NonZero::new_unchecked(MIN) },
+    );
+
+    /// The largest well-formed Roman numeral: MMMCMXCIX (3,999).
+    pub const MAX: Self = Self(
+        // TODO: Use NonZero::new(MAX).unwrap() when MSRV >= 1.83.
+        // SAFETY: crate::MAX is a non-zero constant value.
+        unsafe { NonZero::new_unchecked(MAX) },
+    );
+
     /// Creates a ``RomanNumeral`` for any value that implements.
     /// Requires ``value`` to be greater than 0 and less than 4,000.
     ///
@@ -139,6 +158,7 @@ impl RomanNumeral {
     //     let answer: RomanNumeral = RomanNumeral::new(42).unwrap();
     //     assert_eq!("XLII", answer.to_uppercase());
     ///
+    #[inline]
     pub const fn new(value: u16) -> Result<Self, OutOfRangeError> {
         if 0 != value && value < 4_000 {
             // SAFETY: 0 < value <= 3,999
@@ -159,10 +179,89 @@ impl RomanNumeral {
     ///    assert_eq!(answer.as_u16(), 42_u16);
     ///
     #[must_use]
+    #[inline]
     pub const fn as_u16(self) -> u16 {
         self.0.get()
     }
+}
 
+impl From<RomanNumeral> for u16 {
+    /// Converts a RomanNumeral into a u16.
+    fn from(value: RomanNumeral) -> Self {
+        value.as_u16()
+    }
+}
+
+impl From<RomanNumeral> for u32 {
+    /// Converts a RomanNumeral into a u32.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for u64 {
+    /// Converts a RomanNumeral into a u64.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for u128 {
+    /// Converts a RomanNumeral into a u128.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for usize {
+    /// Converts a RomanNumeral into a usize.
+    fn from(value: RomanNumeral) -> Self {
+        value.as_u16() as Self
+    }
+}
+
+impl From<RomanNumeral> for i16 {
+    /// Converts a RomanNumeral into an i16.
+    fn from(value: RomanNumeral) -> Self {
+        // i16::MAX is 32,767 (2^15 − 1)
+        // Largest Roman numeral is 3,999
+        Self::try_from(value.as_u16())
+            .unwrap_or_else(|_| unreachable!("RomanNumeral::MAX fits in 12 bits."))
+    }
+}
+
+impl From<RomanNumeral> for i32 {
+    /// Converts a RomanNumeral into an i32.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for i64 {
+    /// Converts a RomanNumeral into an i64.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for i128 {
+    /// Converts a RomanNumeral into an i128.
+    fn from(value: RomanNumeral) -> Self {
+        Self::from(value.as_u16())
+    }
+}
+
+impl From<RomanNumeral> for isize {
+    /// Converts a RomanNumeral into an isize.
+    fn from(value: RomanNumeral) -> Self {
+        // isize::MAX is 32,767 (2^15 − 1) for 16-bit targets
+        // Largest Roman numeral is 3,999
+        Self::try_from(value.as_u16())
+            .unwrap_or_else(|_| unreachable!("RomanNumeral::MAX fits in 12 bits."))
+    }
+}
+
+impl RomanNumeral {
     /// Converts a ``RomanNumeral`` to an uppercase string.
     ///
     /// Example
@@ -176,15 +275,7 @@ impl RomanNumeral {
     #[must_use]
     #[cfg(feature = "std")]
     pub fn to_uppercase(self) -> String {
-        let mut out = String::new();
-        let mut n = self.0.get();
-        for &(value, name, _) in ROMAN_NUMERAL_PREFIXES {
-            while n >= value {
-                n -= value;
-                out.push_str(name);
-            }
-        }
-        out
+        format!("{self:X}")
     }
 
     /// Converts a ``RomanNumeral`` to a lowercase string.
@@ -200,19 +291,34 @@ impl RomanNumeral {
     #[must_use]
     #[cfg(feature = "std")]
     pub fn to_lowercase(self) -> String {
-        let mut out = String::new();
+        format!("{self:x}")
+    }
+
+    fn fmt_str(self, f: &mut fmt::Formatter, uppercase: bool) -> fmt::Result {
+        let mut buf = [0_u8; 15]; // longest numeral is MMMDCCCLXXXVIII.
         let mut n = self.0.get();
-        for &(value, _, name) in ROMAN_NUMERAL_PREFIXES {
+        let mut idx = 0;
+        for &(value, part_upper, part_lower) in ROMAN_NUMERAL_PREFIXES {
             while n >= value {
                 n -= value;
-                out.push_str(name);
+                let part = if uppercase { part_upper } else { part_lower };
+                buf[idx..idx + part.len()].copy_from_slice(part);
+                idx += part.len();
             }
         }
-        out
+        // idx must be equal to the length of the string written to buf.
+        debug_assert_ne!(idx, 0);
+        debug_assert_eq!(
+            buf.iter().take_while(|el| el.is_ascii_alphabetic()).count(),
+            idx
+        );
+        // SAFETY: buf only consists of valid ASCII characters;
+        //         idx is the length of the string.
+        let out = unsafe { core::str::from_utf8_unchecked(&buf[..idx]) };
+        f.write_str(out)
     }
 }
 
-#[cfg(feature = "std")]
 impl fmt::Display for RomanNumeral {
     /// Converts a ``RomanNumeral`` to an uppercase string.
     ///
@@ -225,11 +331,10 @@ impl fmt::Display for RomanNumeral {
     ///    assert_eq!("XLII", answer.to_string());
     ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.to_uppercase())
+        self.fmt_str(f, true)
     }
 }
 
-#[cfg(feature = "std")]
 impl fmt::UpperHex for RomanNumeral {
     /// Converts a ``RomanNumeral`` to an uppercase string.
     ///
@@ -239,14 +344,13 @@ impl fmt::UpperHex for RomanNumeral {
     /// .. code-block:: rust
     ///
     ///    let answer: RomanNumeral = RomanNumeral::new(42)?;
-    ///    println!("{:X}", answer);  // XLII
+    ///    println!("{answer:X}");  // XLII
     ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.to_uppercase())
+        self.fmt_str(f, true)
     }
 }
 
-#[cfg(feature = "std")]
 impl fmt::LowerHex for RomanNumeral {
     /// Converts a ``RomanNumeral`` to a lowercase string.
     ///
@@ -256,10 +360,10 @@ impl fmt::LowerHex for RomanNumeral {
     /// .. code-block:: rust
     ///
     ///    let answer: RomanNumeral = RomanNumeral::new(42)?;
-    ///    println!("{:x}", answer);  // xlii
+    ///    println!("{answer:x}");  // xlii
     ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.to_lowercase())
+        self.fmt_str(f, false)
     }
 }
 
@@ -288,9 +392,9 @@ impl FromStr for RomanNumeral {
         }
 
         // ASCII-only uppercase string.
-        let chars = if s.chars().all(|c: char| char::is_ascii_uppercase(&c)) {
+        let chars = if s.chars().all(|c| c.is_ascii_uppercase()) {
             s.as_bytes()
-        } else if s.chars().all(|c: char| char::is_ascii_lowercase(&c)) {
+        } else if s.chars().all(|c| c.is_ascii_lowercase()) {
             &s.as_bytes().to_ascii_uppercase()
         } else {
             // Either Non-ASCII or mixed-case ASCII.
@@ -421,21 +525,20 @@ impl FromStr for RomanNumeral {
 }
 
 /// Numeral value, uppercase character, and lowercase character.
-#[cfg(feature = "std")]
-const ROMAN_NUMERAL_PREFIXES: &[(u16, &str, &str)] = &[
-    (1000, "M", "m"),
-    (900, "CM", "cm"),
-    (500, "D", "d"),
-    (400, "CD", "cd"),
-    (100, "C", "c"),
-    (90, "XC", "xc"),
-    (50, "L", "l"),
-    (40, "XL", "xl"),
-    (10, "X", "x"),
-    (9, "IX", "ix"),
-    (5, "V", "v"),
-    (4, "IV", "iv"),
-    (1, "I", "i"),
+const ROMAN_NUMERAL_PREFIXES: &[(u16, &[u8], &[u8])] = &[
+    (1000, b"M", b"m"),
+    (900, b"CM", b"cm"),
+    (500, b"D", b"d"),
+    (400, b"CD", b"cd"),
+    (100, b"C", b"c"),
+    (90, b"XC", b"xc"),
+    (50, b"L", b"l"),
+    (40, b"XL", b"xl"),
+    (10, b"X", b"x"),
+    (9, b"IX", b"ix"),
+    (5, b"V", b"v"),
+    (4, b"IV", b"iv"),
+    (1, b"I", b"i"),
 ];
 
 impl TryFrom<u8> for RomanNumeral {
@@ -561,52 +664,59 @@ impl TryFrom<i128> for RomanNumeral {
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
     use super::*;
 
     #[test]
+    fn test_roman_numeral_associated_constants() {
+        assert_eq!(RomanNumeral::MIN.as_u16(), 1_u16);
+        assert_eq!(RomanNumeral::MAX.as_u16(), 3_999_u16);
+    }
+
+    #[test]
     fn test_roman_numeral_new() {
+        let rn_42: RomanNumeral = RomanNumeral(NonZero::new(42_u16).unwrap());
+
         assert_eq!(RomanNumeral::new(0), Err(OutOfRangeError));
-        assert_eq!(
-            RomanNumeral::new(1),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::new(1_u8.into()),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::new(1_u16),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::new(42),
-            Ok(RomanNumeral(NonZero::new(42_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::new(3_999),
-            Ok(RomanNumeral(NonZero::new(3_999_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::new(MAX),
-            Ok(RomanNumeral(NonZero::new(3_999_u16).unwrap()))
-        );
+        assert_eq!(RomanNumeral::new(1), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::new(1_u8.into()), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::new(1_u16), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::new(42), Ok(rn_42));
+        assert_eq!(RomanNumeral::new(3_999), Ok(RomanNumeral::MAX));
+        assert_eq!(RomanNumeral::new(MAX), Ok(RomanNumeral::MAX));
         assert!(matches!(RomanNumeral::new(4_000), Err(OutOfRangeError)));
         assert!(matches!(RomanNumeral::new(u16::MAX), Err(OutOfRangeError)));
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    fn test_from_one() {
+        assert_eq!(u16::from(RomanNumeral::MIN), 1);
+        assert_eq!(u32::from(RomanNumeral::MIN), 1);
+        assert_eq!(u64::from(RomanNumeral::MIN), 1);
+        assert_eq!(u128::from(RomanNumeral::MIN), 1);
+        assert_eq!(usize::from(RomanNumeral::MIN), 1);
+        assert_eq!(i16::from(RomanNumeral::MIN), 1);
+        assert_eq!(i32::from(RomanNumeral::MIN), 1);
+        assert_eq!(i64::from(RomanNumeral::MIN), 1);
+        assert_eq!(i128::from(RomanNumeral::MIN), 1);
+        assert_eq!(isize::from(RomanNumeral::MIN), 1);
+    }
+
+    #[test]
     fn test_roman_numeral_to_string() {
         let test_numerals = [
             "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII",
             "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI", "XXII", "XXIII", "XXIV",
         ];
         for (i, roman_str) in test_numerals.iter().enumerate() {
-            let n = u16::try_from(i + 1).unwrap();
-            let r = RomanNumeral::new(n).unwrap().to_string();
-            assert_eq!(&r, roman_str);
+            let n: u16 = (i + 1).try_into().unwrap();
+            let expected: RomanNumeral = RomanNumeral::new(n).unwrap();
+            assert_eq!(expected.to_string(), *roman_str);
         }
-        assert_eq!(RomanNumeral::new(1984).unwrap().to_string(), "MCMLXXXIV");
+        let rn_1984: RomanNumeral = RomanNumeral::new(1984).unwrap();
+        assert_eq!(rn_1984.to_string(), "MCMLXXXIV");
     }
 
     #[test]
@@ -616,83 +726,53 @@ mod test {
             "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI", "XXII", "XXIII", "XXIV",
         ];
         for (i, roman_str) in test_numerals.iter().enumerate() {
-            let n = u16::try_from(i + 1).unwrap();
-            let expected = RomanNumeral::new(n).unwrap();
+            let n: u16 = (i + 1).try_into().unwrap();
+            let expected: RomanNumeral = RomanNumeral::new(n).unwrap();
             let parsed: RomanNumeral = roman_str.parse().expect("parsing failed!");
             assert_eq!(parsed, expected);
         }
 
+        let rn_16: RomanNumeral = RomanNumeral::new(16).unwrap();
         let parsed: RomanNumeral = "xvi".parse().unwrap();
-        assert_eq!(parsed, RomanNumeral::new(16).unwrap());
+        assert_eq!(parsed, rn_16);
 
+        let rn_1583: RomanNumeral = RomanNumeral::new(1583).unwrap();
         let parsed: RomanNumeral = "MDLXXXIII".parse().unwrap();
-        assert_eq!(parsed, RomanNumeral::new(1583).unwrap());
+        assert_eq!(parsed, rn_1583);
 
+        let rn_1984: RomanNumeral = RomanNumeral::new(1984).unwrap();
         let parsed: RomanNumeral = "MCMLXXXIV".parse().unwrap();
-        assert_eq!(parsed, RomanNumeral::new(1984).unwrap());
+        assert_eq!(parsed, rn_1984);
 
+        let rn_2000: RomanNumeral = RomanNumeral::new(2000).unwrap();
         let parsed: RomanNumeral = "MM".parse().unwrap();
-        assert_eq!(parsed, RomanNumeral::new(2000).unwrap());
+        assert_eq!(parsed, rn_2000);
 
         let parsed: RomanNumeral = "MMMCMXCIX".parse().unwrap();
-        assert_eq!(parsed, RomanNumeral::new(3_999).unwrap());
+        assert_eq!(parsed, RomanNumeral::MAX);
     }
 
     #[test]
     fn test_try_from_one() {
-        assert_eq!(
-            RomanNumeral::try_from(1_u8),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_u16),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_u32),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_u64),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_u128),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_usize),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_i8),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_i16),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_i32),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_i64),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
-        assert_eq!(
-            RomanNumeral::try_from(1_i128),
-            Ok(RomanNumeral(NonZero::new(1_u16).unwrap()))
-        );
+        assert_eq!(RomanNumeral::try_from(1_u8), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_u16), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_u32), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_u64), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_u128), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_usize), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_i8), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_i16), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_i32), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_i64), Ok(RomanNumeral::MIN));
+        assert_eq!(RomanNumeral::try_from(1_i128), Ok(RomanNumeral::MIN));
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn test_roman_numeral_round_trip() {
         for i in 1..=3_999 {
             let r = RomanNumeral::new(i).unwrap().to_string();
             let parsed: RomanNumeral = r.parse().unwrap();
-            let val = parsed.0.get();
+            let val: u16 = parsed.as_u16();
             assert_eq!(val, i);
         }
     }
