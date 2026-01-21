@@ -1,2 +1,4 @@
-version=4
-https://github.com/AA-Turner/roman-numerals/tags .*/@ANY_VERSION@\.tar\.gz
+Version: 5
+
+Source: https://github.com/AA-Turner/roman-numerals/tags
+Matching-Pattern: .*/@ANY_VERSION@\.tar\.gz
